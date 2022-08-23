@@ -109,8 +109,22 @@ gradlePlugin {
 
 这个地方需要注意，gradle 7.x 移除了 maven 插件，推荐使用 maven-publish 插件。
 
+#### 应用插件
+
+`settings.gradle` 配置
+
 
 ### 依赖
+
+
+
+#### TransformClassesWithAsmTask
+
+```kotlin
+@get:Nested
+abstract val visitorsList: ListProperty<AsmClassVisitorFactory<*>>
+```
+
 
 
 
