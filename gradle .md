@@ -111,8 +111,112 @@ gradlePlugin {
 
 #### 应用插件
 
-`settings.gradle` 配置
 
+之前
+
+原来我们在声明一个插件的时候一定需要在根 build.gralde下的 buildscripts 通过 dependencies 下，添加classpath 来导入插件
+
+
+pluginManagement
+
+pluginManagement {} 只能在 settings.gradle 文件的第一块或者是 init.gradle 文件中
+
+
+
+* `settings.gradle` 
+
+```
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url('./repo') }
+        google()
+        mavenCentral()
+    }
+    // 导入插件库里面的插件
+    plugins {
+
+    }
+
+    resolutionStrategy {
+
+    }
+}
+dependencyResolutionManagement {
+    // 仓库模式
+//    FAIL_ON_PROJECT_REPOS
+//      If this mode is set, any repository declared directly in a project, either directly or via a plugin, will trigger a build error.
+//    PREFER_PROJECT
+//      If this mode is set, any repository declared on a project will cause the project to use the repositories declared by the project, ignoring those declared in settings.
+//    PREFER_SETTINGS
+//      If this mode is set, any repository declared directly in a project, either directly or via a plugin, will be ignored.
+//    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        maven { url('./repo') }
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "DocDemo"
+include ':app'
+include ':doc'
+```
+
+`plugins` 默认会从 [ Gradle Plugin Portal.](https://plugins.gradle.org/) 中解析插件。
+
+`repositories` 自定义插件库 默认 `gradlePluginPortal()`
+
+`resolutionStrategy` 自定义插件解析规则 ，例如更改请求的版本或明确指定实现构建坐标
+
+```
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.namespace == 'com.example') {
+                useModule('com.example:sample-plugins:1.0.0')
+            }
+        }
+    }
+```
+
+
+* `init.gradle` 
+
+```
+settingsEvaluated { settings ->
+    settings.pluginManagement {
+        plugins {
+        }
+        resolutionStrategy {
+        }
+        repositories {
+        }
+    }
+}
+```
+
+
+插件版本管理
+
+插件解析规则
+
+插件标记工件
+
+`java-gradle-plugin`
+
+应用二进制插件
+
+
+
+
+
+
+#### 发布组件
+
+#### 发布自定构建
+
+一个简单的完整示例
+
+ 
 
 ### 依赖
 
