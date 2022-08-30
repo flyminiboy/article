@@ -1,5 +1,44 @@
 ## LeakCannary
 
+### 代码警告⚠️
+
+代码恐惧症请慎重阅读。本文充斥大量源代码
+
+代码恐惧症请慎重阅读。本文充斥大量源代码
+
+代码恐惧症请慎重阅读。本文充斥大量源代码
+
+### 必要背景知识
+
+#### 引用（Reference）
+
+* 强引用
+
+* 软引用（SoftReference）
+
+* 弱引用（WeakReference）
+
+* 虚引用（PhantomReference）
+
+不同的引用类型，主要体现的是**对象不同的可达性（reachable）状态和对垃圾收集的影响**。
+
+所有引用类型都是抽象类` java.lang.ref.Reference `的子类。它提供了` get() `方法获取原有对象
+
+
+特殊 **虚引用**，重写了 `get()` 方法，返回 `null`
+
+```
+public T get() {
+    return null;
+}
+```
+
+#### 引用队列（ReferenceQueue）
+
+在创建各种引用并关联到相应对象时，可以选择是否需要关联**引用队列**，`JVM` 会在特定时机将**引用** enqueue 到队列里，我们可以从队列里获取引用（remove 方法在这里实际是有获取的意思）进行相关后续逻辑。
+
+
+
 
 AppWatcher
 
@@ -41,11 +80,13 @@ ObjectWatcher : ReachabilityWatcher
     if (!isEnabled()) {
       return
     }
+    // 移除弱可达对象
     removeWeaklyReachableObjects()
     val key = UUID.randomUUID()
       .toString()
     val watchUptimeMillis = clock.uptimeMillis()
     // 关键代码1
+    	 //   private val queue = ReferenceQueue<Any>()
     val reference =
       KeyedWeakReference(watchedObject, key, description, watchUptimeMillis, queue)
     SharkLog.d {
@@ -54,7 +95,8 @@ ObjectWatcher : ReachabilityWatcher
         (if (description.isNotEmpty()) " ($description)" else "") +
         " with key $key"
     }
-
+	
+	// k-v 映射关系
     watchedObjects[key] = reference
     // 关键代码2 轮训机制，检测对象是否被回收
     checkRetainedExecutor.execute {
@@ -64,11 +106,19 @@ ObjectWatcher : ReachabilityWatcher
 ```
 
 
+我们注释 关键代码1 的位置，生成了一个弱引用，并且与一个引用队列关联。
+
+> WeakReferences 在它们指向的对象变得弱可达时立即入队
+> 
+
+关键代码2 的位置会做一个固定时间间隔的轮训。我们继续跟进代码，看看轮训内部具体做了什么。
+
 
 ```kotlin
   @Synchronized private fun moveToRetained(key: String) {
-    removeWeaklyReachableObjects()
-    val retainedRef = watchedObjects[key]
+    removeWeaklyReachableObjects() // 移除弱可达对象
+    // 
+    val retainedRef = watchedObjects[key] // 取当前弱引用对象，在expectWeaklyReachable 的时候做过映射关系
     if (retainedRef != null) {
       retainedRef.retainedUptimeMillis = clock.uptimeMillis()
       onObjectRetainedListeners.forEach { it.onObjectRetained() }
@@ -76,6 +126,93 @@ ObjectWatcher : ReachabilityWatcher
   }
 ```
 
+```kotlin
+  private fun removeWeaklyReachableObjects() {
+    // WeakReferences are enqueued as soon as the object to which they point to becomes weakly
+    // reachable. This is before finalization or garbage collection has actually happened.
+    var ref: KeyedWeakReference?
+    do {
+      ref = queue.poll() as KeyedWeakReference?
+      if (ref != null) {
+        watchedObjects.remove(ref.key)
+      }
+    } while (ref != null)
+  }
+```
+
+
+```kotlin 
+  private fun checkRetainedObjects() {
+    val iCanHasHeap = HeapDumpControl.iCanHasHeap()
+
+    val config = configProvider()
+
+    if (iCanHasHeap is Nope) {
+      if (iCanHasHeap is NotifyingNope) {
+        // Before notifying that we can't dump heap, let's check if we still have retained object.
+        // 获取保留对象的数量，通过过滤map内部内容做判断
+        var retainedReferenceCount = objectWatcher.retainedObjectCount
+
+        if (retainedReferenceCount > 0) {
+          gcTrigger.runGc() // 主动触发垃圾回收机制，将弱引用对象加入到关联的引用队列
+          retainedReferenceCount = objectWatcher.retainedObjectCount
+        }
+
+        val nopeReason = iCanHasHeap.reason()
+        val wouldDump = !checkRetainedCount(
+          retainedReferenceCount, config.retainedVisibleThreshold, nopeReason
+        )
+
+        if (wouldDump) {
+          val uppercaseReason = nopeReason[0].toUpperCase() + nopeReason.substring(1)
+          onRetainInstanceListener.onEvent(DumpingDisabled(uppercaseReason))
+          showRetainedCountNotification(
+            objectCount = retainedReferenceCount,
+            contentText = uppercaseReason
+          )
+        }
+      } else {
+        SharkLog.d {
+          application.getString(
+            R.string.leak_canary_heap_dump_disabled_text, iCanHasHeap.reason()
+          )
+        }
+      }
+      return
+    }
+
+    var retainedReferenceCount = objectWatcher.retainedObjectCount
+
+    if (retainedReferenceCount > 0) {
+      gcTrigger.runGc()
+      retainedReferenceCount = objectWatcher.retainedObjectCount
+    }
+
+    if (checkRetainedCount(retainedReferenceCount, config.retainedVisibleThreshold)) return
+
+    val now = SystemClock.uptimeMillis()
+    val elapsedSinceLastDumpMillis = now - lastHeapDumpUptimeMillis
+    if (elapsedSinceLastDumpMillis < WAIT_BETWEEN_HEAP_DUMPS_MILLIS) {
+      onRetainInstanceListener.onEvent(DumpHappenedRecently)
+      showRetainedCountNotification(
+        objectCount = retainedReferenceCount,
+        contentText = application.getString(R.string.leak_canary_notification_retained_dump_wait)
+      )
+      scheduleRetainedObjectCheck(
+        delayMillis = WAIT_BETWEEN_HEAP_DUMPS_MILLIS - elapsedSinceLastDumpMillis
+      )
+      return
+    }
+
+    dismissRetainedCountNotification()
+    val visibility = if (applicationVisible) "visible" else "not visible"
+    dumpHeap(
+      retainedReferenceCount = retainedReferenceCount,
+      retry = true,
+      reason = "$retainedReferenceCount retained objects, app is $visibility"
+    )
+  }
+```
 
 ```
 interface InstallableWatcher {
@@ -96,13 +233,8 @@ ServiceWatcher : InstallableWatcher
 
 软引用+引用队列
 
-强引用
 
-软引用
-
-弱引用
-
-虚引用
 
 
 我们在创建各种引用并关联到相应对象时，可以选择是否需要关联引用队列。**JVM** 会在特定时机将引用 enqueue 到队列里，我们可以从队列里获取引用（remove 方法在这里实际是有获取的意思）进行相关后续逻辑
+
