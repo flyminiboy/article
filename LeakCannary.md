@@ -12,7 +12,7 @@
 
 #### 引用（Reference）
 
-* 强引用
+* 强引用（没有对应的类型表示，也就是说强引用是普遍存在的）
 
 * 软引用（SoftReference）
 
@@ -24,7 +24,6 @@
 
 所有引用类型都是抽象类` java.lang.ref.Reference `的子类。它提供了` get() `方法获取原有对象
 
-
 特殊 **虚引用**，重写了 `get()` 方法，返回 `null`
 
 ```
@@ -32,6 +31,16 @@ public T get() {
     return null;
 }
 ```
+
+**Java 定义的不同可达性级别（reachability level）**
+
+* 强可达（Strongly Reachable）就是当一个对象可以有一个或多个线程可以不通过各种引用访问到的状态
+
+* 软可达（Softly Reachable）只能通过软引用才能访问到对象的状态
+
+* 弱可达（Weakly Reachable）只能通过弱引用访问时的状态，这是十分临近 finalize 状态的时机，当弱引用被清除的时候，就符合 finalize 的条件了
+
+* 虚可达（Phantom Reachable）没有强、软、弱引用关联，并且 finalize 过了，只有幻象引用指向这个对象的时候
 
 #### 引用队列（ReferenceQueue）
 
@@ -230,6 +239,36 @@ ServiceWatcher : InstallableWatcher
 
 默认四个  
 会在对应的 activity，fragment，viewmodel，view，service销毁的时候，将对象通过一个软引用关联到一个引用队列中。
+
+GcTrigger GC触发器
+
+默认实现直接用的AOSP里面代码
+
+```
+  object Default : GcTrigger {
+    override fun runGc() {
+      // Code taken from AOSP FinalizationTest:
+      // https://android.googlesource.com/platform/libcore/+/master/support/src/test/java/libcore/
+      // java/lang/ref/FinalizationTester.java
+      // System.gc() does not garbage collect every time. Runtime.gc() is
+      // more likely to perform a gc.
+      Runtime.getRuntime()
+        .gc()
+      enqueueReferences()
+      System.runFinalization()
+    }
+
+    private fun enqueueReferences() {
+      // Hack. We don't have a programmatic way to wait for the reference queue daemon to move
+      // references to the appropriate queues.
+      try {
+        Thread.sleep(100)
+      } catch (e: InterruptedException) {
+        throw AssertionError()
+      }
+    }
+  }
+```
 
 软引用+引用队列
 
