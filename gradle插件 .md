@@ -1,5 +1,7 @@
 
-## gradle 插件
+## gradle-插件
+
+一图镇楼
 
 ### 插件类型
 
@@ -15,7 +17,9 @@
 
 #### 构建脚本
 
-我们可以直接将下面代码放在我们的 `build.gradle` 的构建脚本中测试
+直接在构建脚本中编写
+
+将下面代码放在我们的 `build.gradle` 的构建脚本中测试
 
 ```
 apply plugin:GreetingPlugin
@@ -34,9 +38,9 @@ class GreetingPlugin implements Plugin<Project> {
 }
 ```
 
-然后我们自定义了一个脚本，新建了一个 **hello** 的任务，任务内部打印了一句话 **hello gradle plugin**。
+上面代码我们自定义了一个脚本，新建了一个 **hello** 的任务，任务内部打印了一句话 **hello gradle plugin**。
 
-执行任务
+测试，执行任务
 > ./gradlew hello
 
 控制台打印。
@@ -52,11 +56,40 @@ BUILD SUCCESSFUL in 3s
 
 #### buildSrc项目
 
+这个算是gradle内部约定的小玩意。
+
+gradle文档有如下描述
+
+> 当你运行Gradle时，它会检查项目中是否存在一个名为buildSrc的目录。然后Gradle会自动编译并测试这段代码，并将其放入构建脚本的类路径中。您不需要提供任何进一步的操作提示。
+> 
+> 对于多项目构建，只能有一个 buildSrc 目录，它必须位于项目根目录中
+
+[https://docs.gradle.org/current/userguide/organizing_gradle_projects.html#organizing_gradle_projects](https://docs.gradle.org/current/userguide/organizing_gradle_projects.html#organizing_gradle_projects)
+
+1. 新建一个 **buildSrc** 目录。
+
+2. 新建 **build.gradle** 或者 **build.gradle.kts** 文件
+
+本示例以 **build.gradle.kts** 为演示代码
+
+```
+```
+
 #### 独立项目
- 
+
 新建一个 `Java or kotlin Library`。
 
-直接在构建脚本中，编写插件代码。
+
+
+#### 扩展对象
+
+自定义插件工作方式。 `ExtensionContainer`
+
+#### 自定义任务
+
+### 发布插件
+
+参考[gradle-发布插件]()
 
 ```
 gradlePlugin {
@@ -75,27 +108,14 @@ gradlePlugin {
 
 > main/resources/META-INF/gradle-plugins/xx.properties
 
-**xx.properties** 内容
+* **xx.properties** 内容
 
 ```
-implementation-class=com.neukol.doc.plugin.DocPlugin
+implementation-class=x.x.x.xplugin
 ```
 
+`Java Gradle Plugin` 源码地址。[https://github.com/gradle/gradle/blob/master/subprojects/plugin-development/src/main/java/org/gradle/plugin/devel/plugins/JavaGradlePluginPlugin.java](https://github.com/gradle/gradle/blob/master/subprojects/plugin-development/src/main/java/org/gradle/plugin/devel/plugins/JavaGradlePluginPlugin.java)
 
-
-
-
-这个有点类似 Google 的 `AutoService`
-
-#### 扩展对象
-
-自定义插件工作方式。 `ExtensionContainer`
-
-#### 自定义任务
-
-### 发布插件
-
-这个地方需要注意，gradle 7.x 移除了 maven 插件，推荐使用 maven-publish 插件。
 
 #### 应用插件
 
@@ -122,7 +142,7 @@ implementation-class=com.neukol.doc.plugin.DocPlugin
 
 这种写法的前提是要使用的plugin是**核心plugin**或者发布在 [Gradle plugin repository](https://plugins.gradle.org/) 才可以！也就是说如果你自己写的gradle plugin或者公司的gradle plugin，除非是在插件仓库发布过的，否则只能使用第一种方式
 
-原来我们在声明一个插件的时候一定需要在根 build.gralde下的 buildscripts 通过 dependencies 下，添加classpath 来导入插件
+原来我们在声明一个插件的时候一定需要在根 build.gralde下的 buildscripts 通过 dependencies 下，添加 classpath 来导入插件
 
 
 pluginManagement
@@ -239,3 +259,4 @@ abstract val visitorsList: ListProperty<AsmClassVisitorFactory<*>>
 
 * Gradle in Action
 * [刚学会Transform，你告诉我就要被移除了](https://juejin.cn/post/7114863832954044446)
+* [https://docs.gradle.org/nightly/userguide/plugins.html#sec:plugins_block](https://docs.gradle.org/nightly/userguide/plugins.html#sec:plugins_block)
