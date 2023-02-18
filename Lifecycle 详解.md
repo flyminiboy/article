@@ -2,12 +2,33 @@
 
 **类图镇楼**
 
+![](https://mmbiz.qpic.cn/mmbiz_png/ibExRe3rl9wdiazGJDm28uz1Tuq3JicxAVWf9m8dxSuibqviarWt4loUyXZ1X02pVypZokymqBmsxCkZavib4FeGb9EA/0?wx_fmt=png)
 
+今天和小伙伴们一起学习一下`Jetpack Lifecycle`
 
-Lifecycle
-Event
-State
+先来一段官方介绍。
 
+生命周期感知型组件可执行操作来响应另一个组件（如 `Activity` 和 `Fragment`）的生命周期状态的变化
+
+`androidx.lifecycle` 软件包提供了可用于构建生命周期感知型组件的类和接口 - 这些组件可以根据 activity 或 fragment 的当前生命周期状态自动调整其行为。
+
+如何使用很简单了，就不再介绍了，小伙伴自己官网了解了
+
+[https://developer.android.com/topic/libraries/architecture/lifecycle?hl=zh-cn](https://developer.android.com/topic/libraries/architecture/lifecycle?hl=zh-cn)
+
+也可以看郭霖大神的**第一行代码**。
+
+下面我们主要是介绍一下它的内部原理，如何实现生命周期的感知。
+
+分析过后再结合我们的类图看，我相信大家不仅仅是学习到他的原理，我觉得更重要的是学习到一种架构的思想。
+
+### 核心类和接口
+
+* Lifecycle 抽象类
+* LifecycleObserver 接口
+* LifecycleOwner 接口
+
+#### Lifecycle 核心代码
 
 ```java
 
@@ -22,7 +43,10 @@ State
     public abstract State getCurrentState();
 ```
 
-LifecycleObserver
+很明显的一个观察者模式
+
+
+#### LifecycleObserver
 
 ```java
 /**
@@ -38,7 +62,10 @@ public interface LifecycleObserver {
 }
 ```
 
-LifecycleOwner
+简单的一个接口定义，并且注释中说明，在实际应用过程，我们最好的实践是根据自己的业务去选择使用`DefaultLifecycleObserver`或者`LifecycleEventObserver`
+
+
+#### LifecycleOwner
 
 ```java
 public interface LifecycleOwner {
@@ -52,6 +79,11 @@ public interface LifecycleOwner {
 }
 ```
 
+同样简单的一个接口定义，只干一件事情，就是提供一个`Lifecycle`。
+
+所以从架构层设计定义就是完美的体现了清晰明了。
+
+现在我们不去看实现。就根据这一层的定义，让我们自己去实现大家会怎么做。我们怎么去监听到如`Activity` 和 `Fragment`的生命周期呢。如果大家对
 
 androidx.core.app.ComponentActivity LifecycleOwner
 
@@ -94,7 +126,7 @@ ReportFragment
     }
 ```
 
- >= 29 registerActivityLifecycleCallbacks
+ >=29 registerActivityLifecycleCallbacks
 
  <29 将fragment添加到activity，依赖fragment的生命周期
  
